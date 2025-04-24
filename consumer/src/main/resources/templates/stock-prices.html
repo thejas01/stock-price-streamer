@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Real-time Stock Prices</title>
+</head>
+<body>
+    <h1>Real-time Stock Prices</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Price</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="stockPrice : ${stockPrices}">
+                <td th:text="${stockPrice.symbol}"></td>
+                <td th:text="${#numbers.formatDecimal(stockPrice.price, 1, 'DEFAULT', 2, 'DEFAULT')}"></td>
+                <td th:text="${#temporals.format(stockPrice.timestamp, 'yyyy-MM-dd HH:mm:ss')}"></td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
