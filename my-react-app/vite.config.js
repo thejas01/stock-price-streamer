@@ -5,6 +5,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    strictPort: true // This will fail if port 3000 is not available
+    strictPort: true
+  },
+  define: {
+    global: 'window'
   }
 })

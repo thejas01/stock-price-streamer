@@ -1,77 +1,100 @@
-import { useState, useEffect } from 'react'
-import './App.css'
+import './polyfills.js';
+import { useState, useEffect, useCallback } from 'react';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+import './App.css';
 
 function App() {
   const [stockPrices, setStockPrices] = useState({});
   const [error, setError] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
 
-  useEffect(() => {
-    // Initial fetch
-    fetchStockPrices();
+  const setupStompClient = useCallback(() => {
+    const stompClient = new Client({
+      webSocketFactory: () => new SockJS('http://localhost:8888/ws'),
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+      onConnect: () => {
+        setConnectionStatus('Connected');
+        setError(null);
+        
+        // Subscribe to stock price updates
+        stompClient.subscribe('/topic/stock-prices', (message) => {
+          const data = JSON.parse(message.body);
+          if (data.stockPrices) {
+            setStockPrices(prevPrices => {
+              const newPrices = {...data.stockPrices};
+              // Add price change indicators
+              Object.keys(newPrices).forEach(symbol => {
+                newPrices[symbol].change = 
+                  prevPrices[symbol] ? 
+                  newPrices[symbol].price - prevPrices[symbol].price : 
+                  0;
+              });
+              return newPrices;
+            });
+          }
+        });
+      },
+      onDisconnect: () => {
+        setConnectionStatus('Disconnected');
+      },
+      onStompError: (frame) => {
+        setError(`Connection error: ${frame.headers?.message || 'Unknown error'}`);
+        setConnectionStatus('Error');
+      }
+    });
 
-    // Set up polling every 5 seconds
-    const interval = setInterval(fetchStockPrices, 5000);
+    // Activate the client
+    stompClient.activate();
 
-    return () => clearInterval(interval);
+    return () => {
+      stompClient.deactivate();
+    };
   }, []);
 
-  const fetchStockPrices = async () => {
-    try {
-      const response = await fetch('http://localhost:8888/');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      console.log('Received data:', data); // Debug log
-      
-      if (data.stockPrices) {
-        setStockPrices(data.stockPrices);
-        setError(null);
-      } else {
-        console.error('Invalid data format:', data);
-        setError('Invalid data format received from server');
-      }
-    } catch (error) {
-      console.error('Error fetching stock prices:', error);
-      setError(`Failed to fetch stock prices: ${error.message}`);
-    }
-  };
-
-  if (error) {
-    return (
-      <div className="container error">
-        <h1>Error</h1>
-        <p>{error}</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const cleanup = setupStompClient();
+    return () => cleanup();
+  }, [setupStompClient]);
 
   return (
     <div className="container">
       <h1>Real-time Stock Prices</h1>
-      {Object.keys(stockPrices).length === 0 ? (
-        <p className="loading">Loading stock prices...</p>
-      ) : (
-        <div className="stock-grid">
-          {Object.entries(stockPrices).map(([symbol, data]) => (
-            <div key={symbol} className="stock-card">
-              <h2>{symbol}</h2>
-              <p className="price">
-                ${typeof data.price === 'number' ? data.price.toFixed(2) : 'N/A'}
+      <div className={`connection-status ${connectionStatus.toLowerCase()}`}>
+        {connectionStatus}
+      </div>
+      
+      {error && <div className="error-banner">{error}</div>}
+      
+      <div className="stock-grid">
+        {Object.entries(stockPrices).map(([symbol, data]) => (
+          <div key={symbol} 
+               className={`stock-card ${data.change > 0 ? 'positive' : data.change < 0 ? 'negative' : ''}`}>
+            <h2>{symbol}</h2>
+            <p className="price">
+              ${typeof data.price === 'number' ? data.price.toFixed(2) : 'N/A'}
+            </p>
+            {data.change !== 0 && (
+              <p className="change">
+                {data.change > 0 ? '▲' : '▼'} 
+                ${Math.abs(data.change).toFixed(2)}
               </p>
-              <p className="timestamp">
-                {data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+            <p className="timestamp">
+              {new Date(data.timestamp).toLocaleTimeString()}
+            </p>
+          </div>
+        ))}
+      </div>
+
       <div className="debug">
         <p>Last update: {new Date().toLocaleString()}</p>
         <p>Number of stocks: {Object.keys(stockPrices).length}</p>
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

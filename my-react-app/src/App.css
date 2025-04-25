@@ -67,3 +67,35 @@ h1 {
   font-size: 0.9rem;
   color: #666;
 }
+
+.debug p {
+  margin: 5px 0;
+}
+
+.connection-status {
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.connection-status.connected {
+  background-color: #4caf50;
+  color: white;
+}
+
+.connection-status.connecting {
+  background-color: #ff9800;
+  color: white;
+}
+
+.connection-status.disconnected {
+  background-color: #f44336;
+  color: white;
+}
+
+.connection-status.error {
+  background-color: #d32f2f;
+  color: white;
+}
